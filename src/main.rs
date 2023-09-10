@@ -12,6 +12,7 @@ mod ray;
 mod sphere;
 mod vec3;
 
+#[allow(dead_code)]
 fn random_on_hemisphere(normal: Vec3) -> Vec3 {
     let dir = Vec3::rand_unit();
 
@@ -20,6 +21,11 @@ fn random_on_hemisphere(normal: Vec3) -> Vec3 {
     } else {
         dir
     }
+}
+
+#[inline]
+fn lambertian_distribution(normal: Vec3) -> Vec3 {
+    normal + Vec3::rand_unit()
 }
 
 fn ray_color(r: Ray, world: &[Sphere], intensity: f32, depth: u32) -> Color {
@@ -41,7 +47,7 @@ fn ray_color(r: Ray, world: &[Sphere], intensity: f32, depth: u32) -> Color {
         .last();
 
     if let Some(hit) = hit {
-        let dir = random_on_hemisphere(hit.normal);
+        let dir = lambertian_distribution(hit.normal);
         return ray_color(Ray::new(hit.p, dir), world, intensity * 0.5, depth - 1);
     }
 
@@ -53,7 +59,7 @@ fn ray_color(r: Ray, world: &[Sphere], intensity: f32, depth: u32) -> Color {
 
 fn main() {
     let aspect_ratio = 19.0 / 9.0 as f32;
-    let width = 1980u32;
+    let width = 800u32;
     let height = (width as f32 / aspect_ratio) as u32;
 
     let camera = Camera::new(aspect_ratio, width);
@@ -65,18 +71,18 @@ fn main() {
 
     print!("P3\n{} {}\n255\n", width, height);
 
-    let samples = 20;
+    let samples = 50;
 
-    camera.ray_map(samples, |r| {
-        let mut pixel_color = r
+    let colors = camera.ray_map(samples, |r| {
+        let pixel_color = r
             .iter()
-            .map(|r| ray_color(*r, &world, 1.0, 25))
+            .map(|r| ray_color(*r, &world, 1.0, 20))
             .fold(Color::BLACK, |a, b| a + b);
 
-        pixel_color = (1.0 / samples as f32) * pixel_color;
-
-        println!("{}", pixel_color);
+        (1.0 / samples as f32) * pixel_color
     });
 
-    eprintln!("\rDone.                        ");
+    colors.iter().flatten().for_each(|c| println!("{}", c));
+
+    eprintln!("\rDone.                                   ");
 }
