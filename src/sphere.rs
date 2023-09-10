@@ -38,7 +38,7 @@ impl Hit<Ray> for Sphere {
         }
 
         let p = f.at(root);
-        let normal = 1.0 / self.radius * (p - self.center);
+        let normal = (1.0 / self.radius) * (p - self.center);
         let record = HitRecord::new(p, normal, root, f);
 
         Some(record)

@@ -1,14 +1,31 @@
 use std::{
     fmt::Display,
-    ops::{Add, AddAssign, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Mul, Neg, Range, Sub, SubAssign},
 };
+
+use rand::Rng;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3(f32, f32, f32);
 
 impl Vec3 {
+    pub const ZERO: Self = Self(0.0, 0.0, 0.0);
+
     pub fn new(v: (f32, f32, f32)) -> Self {
         Self(v.0, v.1, v.2)
+    }
+
+    pub fn rand_with_range(range: Range<f32>) -> Vec3 {
+        Self(
+            rand::thread_rng().gen_range(range.clone()),
+            rand::thread_rng().gen_range(range.clone()),
+            rand::thread_rng().gen_range(range),
+        )
+    }
+
+    pub fn rand_unit() -> Vec3 {
+        let v = Self::rand_with_range(-1.0..1.0);
+        Self::unit(v)
     }
 
     pub fn scale(a: f32, v: Vec3) -> Vec3 {
@@ -84,6 +101,13 @@ impl Mul<Vec3> for f32 {
     }
 }
 
+impl Neg for Vec3 {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        -1.0 * self
+    }
+}
+
 impl Into<(f32, f32, f32)> for Vec3 {
     fn into(self) -> (f32, f32, f32) {
         (self.0, self.1, self.2)
@@ -95,6 +119,10 @@ pub struct Color {
 }
 
 impl Color {
+    pub const BLACK: Self = Self {
+        rgb: Vec3(0.0, 0.0, 0.0),
+    };
+
     pub fn new(rgb: (f32, f32, f32)) -> Self {
         Self {
             rgb: Vec3::new(rgb),

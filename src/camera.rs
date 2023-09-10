@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::{ray::Ray, vec3::Vec3};
 
 pub struct Camera {
@@ -41,52 +43,36 @@ impl Camera {
         }
     }
 
-    pub fn ray_iter(&self) -> RayIter {
-        RayIter {
-            curr_h: 0,
-            curr_w: 0,
-            height: self.height,
-            width: self.width,
-            pixel_00: self.pixel_00,
-            camera_center: self.camera_center,
-            pixel_delta_u: self.pixel_delta_u,
-            pixel_delta_v: self.pixel_delta_v,
-        }
-    }
-}
+    pub fn ray_map<F: Fn(&[Ray])>(&self, samples: usize, f: F) {
+        let mut rays = (0..samples)
+            .map(|_| Ray::new(Vec3::ZERO, Vec3::ZERO))
+            .take(samples)
+            .collect::<Vec<_>>();
 
-pub struct RayIter {
-    curr_h: u32,
-    curr_w: u32,
-    height: u32,
-    width: u32,
-    pixel_00: Vec3,
-    camera_center: Vec3,
-    pixel_delta_u: Vec3,
-    pixel_delta_v: Vec3,
-}
+        for h in 0..self.height {
+            eprint!("\rLeft: {} ", self.height - h);
 
-impl Iterator for RayIter {
-    type Item = Ray;
+            for w in 0..self.width {
+                let pixel_center = self.pixel_00
+                    + (w as f32 * self.pixel_delta_u)
+                    + (h as f32 * self.pixel_delta_v);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.curr_w == self.width {
-            self.curr_w = 0;
-            self.curr_h += 1;
+                for ray in &mut rays {
+                    let ray_center = pixel_center + Self::pixel_sample_offset(self);
+                    let dir = ray_center - self.camera_center;
+                    *ray = Ray::new(self.camera_center, dir);
+                }
 
-            if self.curr_h == self.height {
-                return None;
+                f(&rays);
             }
         }
+    }
 
-        let pixel_center = self.pixel_00
-            + (self.curr_w as f32 * self.pixel_delta_u)
-            + (self.curr_h as f32 * self.pixel_delta_v);
-        let ray_direction = pixel_center - self.camera_center;
-        let r = Ray::new(self.camera_center, ray_direction);
+    #[inline]
+    fn pixel_sample_offset(&self) -> Vec3 {
+        let x = rand::thread_rng().gen::<f32>() - 0.5;
+        let y = rand::thread_rng().gen::<f32>() - 0.5;
 
-        self.curr_w += 1;
-
-        Some(r)
+        (x * self.pixel_delta_u) + (y * self.pixel_delta_v)
     }
 }
