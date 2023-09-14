@@ -2,6 +2,7 @@ use std::ops::Range;
 
 use crate::{
     hit::{Hit, HitRecord},
+    material::Material,
     ray::Ray,
     vec3::Vec3,
 };
@@ -9,11 +10,16 @@ use crate::{
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f32,
+    pub material: Material,
 }
 
 impl Sphere {
-    pub fn new(center: Vec3, radius: f32) -> Self {
-        Self { center, radius }
+    pub fn new(center: Vec3, radius: f32, material: Material) -> Self {
+        Self {
+            center,
+            radius,
+            material,
+        }
     }
 }
 
@@ -39,7 +45,7 @@ impl Hit<Ray> for Sphere {
 
         let p = f.at(root);
         let normal = (1.0 / self.radius) * (p - self.center);
-        let record = HitRecord::new(p, normal, root, f);
+        let record = HitRecord::new(p, normal, root, self.material, f);
 
         Some(record)
     }

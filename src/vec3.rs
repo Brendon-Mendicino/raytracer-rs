@@ -5,7 +5,7 @@ use std::{
 
 use rand::Rng;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Vec3(f32, f32, f32);
 
 impl Vec3 {
@@ -42,6 +42,20 @@ impl Vec3 {
 
     pub fn unit(v: Vec3) -> Vec3 {
         1.0 / Self::norm(v) * v
+    }
+
+    pub fn elem_dot(v: Self, u: Self) -> Self {
+        Self(v.0 * u.0, v.1 * u.1, v.2 * u.2)
+    }
+
+    #[inline]
+    pub fn lambertian_distribution(normal: Self) -> Self {
+        normal + Self::rand_unit()
+    }
+
+    #[inline]
+    pub fn reflect(v: Vec3, n: Vec3) -> Self {
+        v - 2.0 * Self::dot(v, n) * n
     }
 
     pub fn x(self) -> f32 {
@@ -114,6 +128,7 @@ impl Into<(f32, f32, f32)> for Vec3 {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Color {
     rgb: Vec3,
 }
@@ -123,22 +138,52 @@ impl Color {
         rgb: Vec3(0.0, 0.0, 0.0),
     };
 
+    pub const WHITE: Self = Self {
+        rgb: Vec3(1.0, 1.0, 1.0),
+    };
+
+    pub const RED: Self = Self {
+        rgb: Vec3(1.0, 0.0, 0.0),
+    };
+
+    pub const GREEN: Self = Self {
+        rgb: Vec3(0.0, 1.0, 0.0),
+    };
+
+    pub const BLUE: Self = Self {
+        rgb: Vec3(0.0, 0.0, 1.0),
+    };
+
     pub fn new(rgb: (f32, f32, f32)) -> Self {
         Self {
             rgb: Vec3::new(rgb),
         }
     }
+
+    pub fn blend(a: Self, b: Self) -> Self {
+        Self {
+            rgb: Vec3::elem_dot(a.rgb, b.rgb),
+        }
+    }
+
+    fn linera_to_gamma(c: f32) -> f32 {
+        f32::sqrt(c)
+    }
 }
 
 impl Display for Color {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let r = Self::linera_to_gamma(self.rgb.0);
+        let g = Self::linera_to_gamma(self.rgb.1);
+        let b = Self::linera_to_gamma(self.rgb.2);
+
         // Write the translated [0,255] value of each color component.
         write!(
             f,
             "{} {} {}",
-            (255.999 * self.rgb.0) as u8,
-            (255.999 * self.rgb.1) as u8,
-            (255.999 * self.rgb.2) as u8
+            (255.999 * r) as u8,
+            (255.999 * g) as u8,
+            (255.999 * b) as u8
         )
     }
 }
