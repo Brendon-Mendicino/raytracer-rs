@@ -34,14 +34,17 @@ fn ray_color(r: Ray, world: &[Sphere], depth: u32) -> Color {
         .last();
 
     if let Some(hit) = hit {
-        let scatter = hit.material.scatter(r, hit.normal);
+        let scatter = hit.material.scatter(r, hit.normal, hit.front_face);
 
         return match scatter {
             Scatter::Absorbed { solid_color } => solid_color,
             Scatter::Scattered {
                 direction,
                 attenuation,
-            } => Color::blend(attenuation, ray_color(Ray::new(hit.p, direction), world, depth - 1)),
+            } => Color::blend(
+                attenuation,
+                ray_color(Ray::new(hit.p, direction), world, depth - 1),
+            ),
         };
     }
 
@@ -77,7 +80,7 @@ fn main() {
         Sphere::new(
             Vec3::new((-1.0, 0.0, -1.0)),
             0.5,
-            Material::lambertian(Color::new((0.2, 0.8, 0.2)), None),
+            Material::dielectric(1.5, None),
         ),
         Sphere::new(
             Vec3::new((0.0, -100.5, -1.0)),
@@ -88,13 +91,10 @@ fn main() {
 
     print!("P3\n{} {}\n255\n", width, height);
 
-    let samples = 100;
+    let samples = 50;
 
     let colors = camera.ray_map(samples, |r| {
-        let pixel_color = r
-            .iter()
-            .map(|r| ray_color(*r, &world, 20))
-            .fold(Color::BLACK, |a, b| a + b);
+        let pixel_color = r.iter().map(|r| ray_color(*r, &world, 30)).sum::<Color>();
 
         (1.0 / samples as f32) * pixel_color
     });

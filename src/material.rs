@@ -8,6 +8,9 @@ pub enum MaterialType {
     #[default]
     Metal,
     Lambertian,
+    Dielectric {
+        refraction_index: f32,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -40,19 +43,49 @@ impl Material {
         }
     }
 
-    pub fn scatter(&self, r: Ray, normal: Vec3) -> Scatter {
+    pub fn dielectric(refraction_index: f32, fuzz: Option<f32>) -> Self {
+        Self {
+            material: MaterialType::Dielectric { refraction_index },
+            solid_color: Color::WHITE,
+            fuzz,
+        }
+    }
+
+    pub fn scatter(&self, r: Ray, normal: Vec3, front_face: bool) -> Scatter {
         let mut result = match self.material {
-            MaterialType::Lambertian => {
-                Scatter::Scattered {
-                    direction: Vec3::lambertian_distribution(normal),
-                    attenuation: self.solid_color,
-                }
-            }
+            MaterialType::Lambertian => Scatter::Scattered {
+                direction: Vec3::lambertian_distribution(normal),
+                attenuation: self.solid_color,
+            },
             MaterialType::Metal => {
                 let mut direction = Vec3::reflect(r.dir, normal);
                 if Vec3::norm(direction) < 1e-8 {
                     direction = normal;
                 }
+
+                Scatter::Scattered {
+                    direction,
+                    attenuation: self.solid_color,
+                }
+            }
+            MaterialType::Dielectric { refraction_index } => {
+                let (eta, eta_prime) = if front_face {
+                    (1.0, refraction_index)
+                } else {
+                    (refraction_index, 1.0)
+                };
+
+                let r_dir = Vec3::unit(r.dir);
+                let cos_theta = Vec3::dot(-r_dir, normal).min(1.0).max(-1.0);
+                let sin_theta = f32::sqrt(1.0 - f32::powi(cos_theta, 2));
+
+                let cannot_refract = eta / eta_prime * sin_theta > 1.0;
+
+                let direction = if cannot_refract {
+                    Vec3::reflect(r_dir, normal)
+                } else {
+                    Vec3::refract(r_dir, normal, eta, eta_prime)
+                };
 
                 Scatter::Scattered {
                     direction,

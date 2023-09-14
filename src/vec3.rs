@@ -1,12 +1,13 @@
 use std::{
     fmt::Display,
+    iter::Sum,
     ops::{Add, AddAssign, Mul, Neg, Range, Sub, SubAssign},
 };
 
 use rand::Rng;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct Vec3(f32, f32, f32);
+pub struct Vec3(pub f32, pub f32, pub f32);
 
 impl Vec3 {
     pub const ZERO: Self = Self(0.0, 0.0, 0.0);
@@ -44,6 +45,10 @@ impl Vec3 {
         1.0 / Self::norm(v) * v
     }
 
+    pub fn len(self) -> f32 {
+        f32::sqrt(Vec3::dot(self, self))
+    }
+
     pub fn elem_dot(v: Self, u: Self) -> Self {
         Self(v.0 * u.0, v.1 * u.1, v.2 * u.2)
     }
@@ -56,6 +61,24 @@ impl Vec3 {
     #[inline]
     pub fn reflect(v: Vec3, n: Vec3) -> Self {
         v - 2.0 * Self::dot(v, n) * n
+    }
+
+    #[inline]
+    pub fn refract(r: Self, n: Self, eta: f32, eta_prime: f32) -> Self {
+        let cos_theta = Vec3::dot(-r, n).min(1.0).max(-1.0);
+        let r_out_perpendicular = eta / eta_prime * (r + cos_theta * n);
+        let r_out_parallel = if cos_theta > 0.0 {
+            -f32::sqrt(f32::abs(
+                1.0 - Vec3::dot(r_out_perpendicular, r_out_perpendicular),
+            )) * n
+        } else {
+            f32::sqrt(f32::abs(
+                1.0 - Vec3::dot(r_out_perpendicular, r_out_perpendicular),
+            )) * n
+        };
+
+        let r_out = r_out_perpendicular + r_out_parallel;
+        r_out
     }
 
     pub fn x(self) -> f32 {
@@ -130,7 +153,7 @@ impl Into<(f32, f32, f32)> for Vec3 {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Color {
-    rgb: Vec3,
+    pub rgb: Vec3,
 }
 
 impl Color {
@@ -185,6 +208,12 @@ impl Display for Color {
             (255.999 * g) as u8,
             (255.999 * b) as u8
         )
+    }
+}
+
+impl Sum for Color {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Color::BLACK, |a, b| a + b)
     }
 }
 
