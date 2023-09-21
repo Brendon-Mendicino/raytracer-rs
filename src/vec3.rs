@@ -17,10 +17,11 @@ impl Vec3 {
     }
 
     pub fn rand_with_range(range: Range<f32>) -> Vec3 {
+        let mut rng = rand::thread_rng();
         Self(
-            rand::thread_rng().gen_range(range.clone()),
-            rand::thread_rng().gen_range(range.clone()),
-            rand::thread_rng().gen_range(range),
+            rng.gen_range(range.clone()),
+            rng.gen_range(range.clone()),
+            rng.gen_range(range),
         )
     }
 
@@ -35,6 +36,14 @@ impl Vec3 {
 
     pub fn dot(v: Vec3, u: Vec3) -> f32 {
         v.0 * u.0 + v.1 * u.1 + v.2 * u.2
+    }
+
+    pub fn cross(v: Vec3, u: Vec3) -> Vec3 {
+        Vec3(
+            v.1 * u.2 - v.2 * u.1,
+            v.2 * u.0 - v.0 * u.2,
+            v.0 * u.1 - v.1 * u.0,
+        )
     }
 
     pub fn norm(v: Vec3) -> f32 {
@@ -63,19 +72,15 @@ impl Vec3 {
         v - 2.0 * Self::dot(v, n) * n
     }
 
+    /// Calcluate the refracted vector, `r` and `n` must be
+    /// in opposite direction
     #[inline]
-    pub fn refract(r: Self, n: Self, eta: f32, eta_prime: f32) -> Self {
-        let cos_theta = Vec3::dot(-r, n).min(1.0).max(-1.0);
-        let r_out_perpendicular = eta / eta_prime * (r + cos_theta * n);
-        let r_out_parallel = if cos_theta > 0.0 {
-            -f32::sqrt(f32::abs(
-                1.0 - Vec3::dot(r_out_perpendicular, r_out_perpendicular),
-            )) * n
-        } else {
-            f32::sqrt(f32::abs(
-                1.0 - Vec3::dot(r_out_perpendicular, r_out_perpendicular),
-            )) * n
-        };
+    pub fn refract(r: Self, n: Self, refraction_ratio: f32) -> Self {
+        let cos_theta = Vec3::dot(-r, n).min(1.0);
+        let r_out_perpendicular = refraction_ratio * (r + cos_theta.abs() * n);
+        let r_out_parallel = -f32::sqrt(f32::abs(
+            1.0 - Vec3::dot(r_out_perpendicular, r_out_perpendicular),
+        )) * n;
 
         let r_out = r_out_perpendicular + r_out_parallel;
         r_out

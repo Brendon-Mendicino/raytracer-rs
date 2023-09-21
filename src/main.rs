@@ -1,3 +1,5 @@
+use std::iter::Iterator;
+
 use hit::Hit;
 use material::Scatter;
 use sphere::Sphere;
@@ -31,10 +33,11 @@ fn ray_color(r: Ray, world: &[Sphere], depth: u32) -> Color {
             }
             None => None,
         })
+        .rev()
         .last();
 
     if let Some(hit) = hit {
-        let scatter = hit.material.scatter(r, hit.normal, hit.front_face);
+        let scatter = hit.material.scatter(r, hit.normal, 1.0, hit.front_face);
 
         return match scatter {
             Scatter::Absorbed { solid_color } => solid_color,
@@ -56,16 +59,22 @@ fn ray_color(r: Ray, world: &[Sphere], depth: u32) -> Color {
 
 fn main() {
     let aspect_ratio = 19.0 / 9.0 as f32;
-    let width = 800u32;
+    let width = 400u32;
     let height = (width as f32 / aspect_ratio) as u32;
 
-    let camera = Camera::new(aspect_ratio, width);
+    let camera = Camera::new(
+        aspect_ratio,
+        width,
+        20.,
+        Vec3(-2., 2., 1.),
+        Vec3(0., 0., -1.),
+    );
 
     let world = vec![
         Sphere::new(
             Vec3::new((0.0, 0.0, -1.0)),
             0.5,
-            Material::metal(Color::new((0.8, 0.8, 0.8)), Some(0.1)),
+            Material::metal(Color::new((0.8, 0.8, 0.8)), None),
         ),
         Sphere::new(
             Vec3::new((0.0, 0.7, -1.0)),
@@ -75,11 +84,16 @@ fn main() {
         Sphere::new(
             Vec3::new((1.0, 0.0, -1.0)),
             0.5,
-            Material::metal(Color::new((0.8, 0.6, 0.2)), Some(0.5)),
+            Material::metal(Color::new((0.8, 0.6, 0.2)), Some(0.4)),
         ),
         Sphere::new(
             Vec3::new((-1.0, 0.0, -1.0)),
             0.5,
+            Material::dielectric(1.5, None),
+        ),
+        Sphere::new(
+            Vec3::new((-1.0, 0.0, -1.0)),
+            -0.4,
             Material::dielectric(1.5, None),
         ),
         Sphere::new(
@@ -91,10 +105,14 @@ fn main() {
 
     print!("P3\n{} {}\n255\n", width, height);
 
-    let samples = 50;
+    let samples = 30;
+    let depth = 10;
 
     let colors = camera.ray_map(samples, |r| {
-        let pixel_color = r.iter().map(|r| ray_color(*r, &world, 30)).sum::<Color>();
+        let pixel_color = r
+            .iter()
+            .map(|r| ray_color(*r, &world, depth))
+            .sum::<Color>();
 
         (1.0 / samples as f32) * pixel_color
     });
