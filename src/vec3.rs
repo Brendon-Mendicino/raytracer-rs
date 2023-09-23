@@ -208,6 +208,12 @@ impl Color {
     fn linera_to_gamma(c: f32) -> f32 {
         f32::sqrt(c)
     }
+
+    pub fn rand(range: Range<f32>) -> Self {
+        Self {
+            rgb: Vec3::rand_with_range(range),
+        }
+    }
 }
 
 impl Display for Color {

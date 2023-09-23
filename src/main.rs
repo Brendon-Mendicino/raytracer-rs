@@ -2,6 +2,7 @@ use std::iter::Iterator;
 
 use hit::Hit;
 use material::Scatter;
+use rand::Rng;
 use sphere::Sphere;
 
 use crate::camera::Camera;
@@ -24,17 +25,24 @@ fn ray_color(r: Ray, world: &[Sphere], depth: u32) -> Color {
 
     let mut max_t = f32::INFINITY;
 
-    let hit = world
-        .iter()
-        .filter_map(|s| match s.hit(&r, 0.001..max_t) {
-            Some(hit) => {
-                max_t = hit.t;
-                Some(hit)
-            }
-            None => None,
-        })
-        .rev()
-        .last();
+    // let hit = world
+    //     .iter()
+    //     .filter_map(|s| match s.hit(&r, 0.001..max_t) {
+    //         Some(hit) => {
+    //             max_t = hit.t;
+    //             Some(hit)
+    //         }
+    //         None => None,
+    //     })
+    //     .rev()
+    //     .last();
+    let mut hit = None;
+    for s in world {
+        if let Some(s_hit) = s.hit(&r, 0.001..max_t) {
+            max_t = s_hit.t;
+            hit = Some(s_hit)
+        }
+    }
 
     if let Some(hit) = hit {
         let scatter = hit.material.scatter(r, hit.normal, 1.0, hit.front_face);
@@ -66,49 +74,63 @@ fn main() {
         aspect_ratio,
         width,
         20.,
-        Vec3(-2., 2., 1.),
-        Vec3(0., 0., -1.),
+        Vec3(13., 2., 3.),
+        Vec3(0., 0., 0.),
+        0.6,
         10.,
-        3.4,
     );
 
-    let world = vec![
+    let ground_material = Material::lambertian(Color::new((0.5, 0.5, 0.5)), None);
+    let mut world = vec![
+        Sphere::new(Vec3::new((0., -1000., 0.)), 1000., ground_material),
         Sphere::new(
-            Vec3::new((0.0, 0.0, -1.0)),
-            0.5,
-            Material::metal(Color::new((0.8, 0.8, 0.8)), None),
+            Vec3::new((0., 1., 0.)),
+            1.,
+            Material::dielectric(1.5, None),
         ),
         Sphere::new(
-            Vec3::new((0.0, 0.7, -1.0)),
+            Vec3::new((0.0, 2.3, 0.0)),
             0.3,
             Material::lambertian(Color::new((0.2, 0.2, 0.8)), None),
         ),
         Sphere::new(
-            Vec3::new((1.0, 0.0, -1.0)),
-            0.5,
-            Material::metal(Color::new((0.8, 0.6, 0.2)), Some(0.4)),
+            Vec3::new((4., 1., 0.)),
+            1.,
+            Material::metal(Color::new((0.8, 0.8, 0.8)), None),
         ),
         Sphere::new(
-            Vec3::new((-1.0, 0.0, -1.0)),
-            0.5,
-            Material::dielectric(1.5, None),
-        ),
-        Sphere::new(
-            Vec3::new((-1.0, 0.0, -1.0)),
-            -0.4,
-            Material::dielectric(1.5, None),
-        ),
-        Sphere::new(
-            Vec3::new((0.0, -100.5, -1.0)),
-            100.0,
-            Material::lambertian(Color::new((0.9, 0.2, 0.2)), None),
+            Vec3::new((-4.0, 1., 0.)),
+            1.,
+            Material::metal(Color::new((0.8, 0.6, 0.2)), Some(0.3)),
         ),
     ];
 
+    let mut rng = rand::thread_rng();
+    for a in -11..11 {
+        for b in -11..11 {
+            let choose_mat = rng.gen::<f32>();
+            let center = Vec3(
+                a as f32 + 0.9 * rng.gen::<f32>(),
+                0.2,
+                b as f32 + 0.9 * rng.gen::<f32>(),
+            );
+
+            let material = if (0.0..0.7).contains(&choose_mat) {
+                Material::lambertian(Color::rand(0.0..1.0), None)
+            } else if (0.7..0.9).contains(&choose_mat) {
+                Material::metal(Color::rand(0.4..0.8), Some(rng.gen()))
+            } else {
+                Material::dielectric(rng.gen_range(1.0..5.0), None)
+            };
+
+            world.push(Sphere::new(center, 0.2, material));
+        }
+    }
+
     print!("P3\n{} {}\n255\n", width, height);
 
-    let samples = 30;
-    let depth = 10;
+    let samples = 100;
+    let depth = 50;
 
     let colors = camera.ray_map(samples, |r| {
         let pixel_color = r
