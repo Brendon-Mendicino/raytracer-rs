@@ -30,6 +30,17 @@ impl Vec3 {
         Self::unit(v)
     }
 
+    pub fn rand_in_unit_disk() -> Self {
+        let mut rng = rand::thread_rng();
+
+        loop {
+            let p = Self(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
+            if p.len() < 1.0 {
+                return p;
+            }
+        }
+    }
+
     pub fn scale(a: f32, v: Vec3) -> Vec3 {
         Self(a * v.0, a * v.1, a * v.2)
     }

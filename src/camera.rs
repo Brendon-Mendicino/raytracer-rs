@@ -14,6 +14,8 @@ use crate::{
 pub struct Camera {
     width: u32,
     height: u32,
+    defocus_disk_u: Vec3,
+    defocus_disk_v: Vec3,
     camera_center: Vec3,
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
@@ -21,18 +23,27 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: f32, width: u32, v_fov: f32, look_from: Vec3, look_at: Vec3) -> Self {
+    pub fn new(
+        aspect_ratio: f32,
+        width: u32,
+        v_fov: f32,
+        look_from: Vec3,
+        look_at: Vec3,
+        defocus_angle: f32,
+        focus_dist: f32,
+    ) -> Self {
         let vup = Vec3(0., 1., 0.);
         let camera_center = look_from;
 
         let height = (width as f32 / aspect_ratio) as u32;
 
-        let focal_length = (look_from - look_at).len();
+        // Determine viewport dimensions.
         let theta = v_fov.to_radians();
         let h = f32::tan(theta / 2.);
-        let viewport_h = 2. * h * focal_length;
+        let viewport_h = 2. * h * focus_dist;
         let viewport_w = viewport_h * (width as f32 / height as f32);
 
+        // Calculate the u,v,w unit basis vectors for the camera coordinate frame.
         let w = Vec3::unit(look_from - look_at);
         let u = Vec3::unit(Vec3::cross(vup, w));
         let v = Vec3::cross(w, u);
@@ -47,12 +58,19 @@ impl Camera {
 
         // Calculate the location of the upper left pixel.
         let viewport_upper_left =
-            camera_center - (focal_length * w) - 0.5 * (viewport_u + viewport_v);
+            camera_center - (focus_dist * w) - 0.5 * (viewport_u + viewport_v);
         let pixel_00 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+
+        // Calculate the camera defocus disk basis vectors.
+        let defocus_radius = focus_dist * f32::tan((defocus_angle / 2.).to_radians());
+        let defocus_disk_u = u * defocus_radius;
+        let defocus_disk_v = v * defocus_radius;
 
         Self {
             width,
             height,
+            defocus_disk_u,
+            defocus_disk_v,
             camera_center,
             pixel_delta_u,
             pixel_delta_v,
@@ -104,7 +122,7 @@ impl Camera {
             .take(samples as usize)
             .collect::<Vec<_>>();
 
-        let mut colors = Vec::with_capacity(self.width as usize);
+        let mut colors = Vec::with_capacity(self.width as usize * h_range.len());
 
         for h in h_range {
             progress.fetch_add(1, atomic::Ordering::Relaxed);
@@ -114,9 +132,11 @@ impl Camera {
                     + (h as f32 * self.pixel_delta_v);
 
                 for ray in &mut rays {
-                    let ray_center = pixel_center + Self::pixel_sample_offset(self);
-                    let dir = ray_center - self.camera_center;
-                    *ray = Ray::new(self.camera_center, dir);
+                    let viewport_pos = pixel_center + Self::pixel_sample_offset(self);
+                    let ray_origin = self.defocus_disk_sample();
+                    let dir = viewport_pos - ray_origin;
+
+                    *ray = Ray::new(ray_origin, dir);
                 }
 
                 colors.push(f(&rays));
@@ -124,6 +144,13 @@ impl Camera {
         }
 
         colors
+    }
+
+    #[inline]
+    fn defocus_disk_sample(&self) -> Vec3 {
+        let p = Vec3::rand_in_unit_disk();
+
+        self.camera_center + p.0 * self.defocus_disk_u + p.1 * self.defocus_disk_v
     }
 
     #[inline]
