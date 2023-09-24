@@ -24,11 +24,11 @@ impl Sphere {
 }
 
 impl Hit<Ray> for Sphere {
-    fn hit(&self, f: &Ray, t_range: Range<f32>) -> Option<HitRecord> {
-        let oc = f.start - self.center;
+    fn hit(&self, r: &Ray, t_range: Range<f32>) -> Option<HitRecord> {
+        let oc = r.start - self.center;
 
-        let a = Vec3::dot(f.dir, f.dir);
-        let half_b = Vec3::dot(f.dir, oc);
+        let a = Vec3::dot(r.dir, r.dir);
+        let half_b = Vec3::dot(r.dir, oc);
         let c = Vec3::dot(oc, oc) - f32::powi(self.radius, 2);
 
         let discriminant = half_b * half_b - a * c;
@@ -43,9 +43,9 @@ impl Hit<Ray> for Sphere {
             }
         }
 
-        let p = f.at(root);
+        let p = r.at(root);
         let normal = (1.0 / self.radius) * (p - self.center);
-        let record = HitRecord::new(p, normal, root, self.material, f);
+        let record = HitRecord::new(p, normal, root, self.material, r);
 
         Some(record)
     }

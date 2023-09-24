@@ -1,4 +1,5 @@
 use std::iter::Iterator;
+use std::time::Instant;
 
 use hit::Hit;
 use material::Scatter;
@@ -18,56 +19,52 @@ mod ray;
 mod sphere;
 mod vec3;
 
-fn ray_color(r: Ray, world: &[Sphere], depth: u32) -> Color {
-    if depth == 0 {
-        return Color::BLACK;
-    }
+fn ray_color(mut r: Ray, world: &[Sphere], depth: u32) -> Color {
+    let mut attenuation = Color::WHITE;
 
-    let mut max_t = f32::INFINITY;
+    for _ in 0..depth {
+        let mut max_t = f32::INFINITY;
+        let mut hit = None;
 
-    // let hit = world
-    //     .iter()
-    //     .filter_map(|s| match s.hit(&r, 0.001..max_t) {
-    //         Some(hit) => {
-    //             max_t = hit.t;
-    //             Some(hit)
-    //         }
-    //         None => None,
-    //     })
-    //     .rev()
-    //     .last();
-    let mut hit = None;
-    for s in world {
-        if let Some(s_hit) = s.hit(&r, 0.001..max_t) {
-            max_t = s_hit.t;
-            hit = Some(s_hit)
+        // Find the closest hitted object.
+        for s in world {
+            if let Some(s_hit) = s.hit(&r, 0.001..max_t) {
+                max_t = s_hit.t;
+                hit = Some(s_hit)
+            }
         }
+
+        if let Some(hit) = hit {
+            let scatter = hit.material.scatter(r, hit.normal, 1.0, hit.front_face);
+
+            match scatter {
+                Scatter::Absorbed { solid_color } => {
+                    return Color::blend(attenuation, solid_color);
+                }
+                Scatter::Scattered {
+                    direction,
+                    attenuation: att,
+                } => {
+                    attenuation = Color::blend(att, attenuation);
+                    r = Ray::new(hit.p, direction);
+                    continue;
+                }
+            };
+        }
+
+        let dir = Vec3::unit(r.dir);
+        let a = 0.5 * (dir.y() + 1.0);
+
+        let final_color = (1.0 - a) * Color::new((1.0, 1.0, 1.0)) + a * Color::new((0.5, 0.7, 1.0));
+        return Color::blend(attenuation, final_color);
     }
 
-    if let Some(hit) = hit {
-        let scatter = hit.material.scatter(r, hit.normal, 1.0, hit.front_face);
-
-        return match scatter {
-            Scatter::Absorbed { solid_color } => solid_color,
-            Scatter::Scattered {
-                direction,
-                attenuation,
-            } => Color::blend(
-                attenuation,
-                ray_color(Ray::new(hit.p, direction), world, depth - 1),
-            ),
-        };
-    }
-
-    let dir = Vec3::unit(r.dir);
-    let a = 0.5 * (dir.y() + 1.0);
-
-    (1.0 - a) * Color::new((1.0, 1.0, 1.0)) + a * Color::new((0.5, 0.7, 1.0))
+    Color::BLACK
 }
 
 fn main() {
     let aspect_ratio = 19.0 / 9.0 as f32;
-    let width = 400u32;
+    let width = 800u32;
     let height = (width as f32 / aspect_ratio) as u32;
 
     let camera = Camera::new(
@@ -83,11 +80,7 @@ fn main() {
     let ground_material = Material::lambertian(Color::new((0.5, 0.5, 0.5)), None);
     let mut world = vec![
         Sphere::new(Vec3::new((0., -1000., 0.)), 1000., ground_material),
-        Sphere::new(
-            Vec3::new((0., 1., 0.)),
-            1.,
-            Material::dielectric(1.5, None),
-        ),
+        Sphere::new(Vec3::new((0., 1., 0.)), 1., Material::dielectric(1.5, None)),
         Sphere::new(
             Vec3::new((0.0, 2.3, 0.0)),
             0.3,
@@ -131,6 +124,7 @@ fn main() {
 
     let samples = 100;
     let depth = 50;
+    let time = Instant::now();
 
     let colors = camera.ray_map(samples, |r| {
         let pixel_color = r
@@ -144,4 +138,5 @@ fn main() {
     colors.iter().flatten().for_each(|c| println!("{}", c));
 
     eprintln!("\rDone.                                   ");
+    eprintln!("Time took: {}", time.elapsed().as_secs_f32());
 }
