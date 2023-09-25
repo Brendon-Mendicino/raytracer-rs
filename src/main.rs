@@ -122,8 +122,8 @@ fn main() {
 
     print!("P3\n{} {}\n255\n", width, height);
 
-    let samples = 100;
-    let depth = 50;
+    let samples = 50;
+    let depth = 20;
     let time = Instant::now();
 
     let colors = camera.ray_map(samples, |r| {
@@ -137,6 +137,11 @@ fn main() {
 
     colors.iter().flatten().for_each(|c| println!("{}", c));
 
+    let elapsed = time.elapsed();
     eprintln!("\rDone.                                   ");
-    eprintln!("Time took: {}", time.elapsed().as_secs_f32());
+    eprintln!(
+        "Time took: {}m {:.2}s",
+        elapsed.as_secs() / 60,
+        elapsed.as_secs_f32() % 60.
+    );
 }

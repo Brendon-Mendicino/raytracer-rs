@@ -29,13 +29,13 @@ impl Hit<Ray> for Sphere {
 
         let a = Vec3::dot(r.dir, r.dir);
         let half_b = Vec3::dot(r.dir, oc);
-        let c = Vec3::dot(oc, oc) - f32::powi(self.radius, 2);
+        let c = Vec3::dot(oc, oc) - self.radius * self.radius;
 
         let discriminant = half_b * half_b - a * c;
         let sqrtd = f32::sqrt(discriminant);
 
         /* Find the nearest root that lies in the range. */
-        let mut root = (-half_b - sqrtd) / a;
+        let mut root = -(half_b + sqrtd) / a;
         if !t_range.contains(&root) {
             root = (-half_b + sqrtd) / a;
             if !t_range.contains(&root) {
